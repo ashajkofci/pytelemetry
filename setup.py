@@ -12,16 +12,10 @@ with io.open('DESCRIPTION.rst', encoding="utf-8") as f:
 setup(
     name='pytelemetry',
 
-    version='1.1.9',
-
-    description='First class data visualization and communication with embedded devices',
+    version='1.1.10',
     long_description=long_description,
 
-    url='https://github.com/Overdrivr/pytelemetry',
-
-    author='Rémi Bèges',
-    author_email='remi.beges@gmail.com',
-
+    author='Rémi Bèges, Adrian Shajkofci',
     license='MIT',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -41,6 +35,9 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
 
     keywords='lightweight communication protocol embedded telemetry remote program control',
