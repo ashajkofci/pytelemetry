@@ -57,11 +57,13 @@ class Delimiter():
     def decode(self, data):
         # Ensure data is iterable for both Python 2 and 3
         if isinstance(data, (bytes, bytearray)):
-            # It's already iterable, but in Python 2 bytes are strings
-            # and we need to handle each byte correctly
+            # It's already iterable, no need to wrap it
             char_iter = data
+        elif isinstance(data, list):
+            # Handle list input
+            char_iter = bytearray(data)
         else:
-            # Convert to bytearray for consistent handling
+            # Single integer value
             char_iter = bytearray([data])
             
         for c in char_iter:
