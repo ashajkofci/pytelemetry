@@ -1,3 +1,5 @@
+from __future__ import division  # Use Python 3-style division in Python 2
+import six
 from pytelemetry.telemetry.telemetry import Telemetry
 from pytelemetry.telemetry.c_binding import TelemetryCBinding
 from pytelemetry.remoting import translate

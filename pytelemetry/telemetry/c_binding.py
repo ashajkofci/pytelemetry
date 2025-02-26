@@ -1,5 +1,7 @@
 from ctypes import *
 import os
+import six
+
 # Function definitions for C api
 buffer_operation_func_t = CFUNCTYPE(c_int32, POINTER(c_uint8), c_uint32)
 check_operation_func_t = CFUNCTYPE(c_int32)
@@ -83,26 +85,36 @@ C API Abstraction over the C binding protocol implementation
         """
 
         """
+        # Ensure topic is proper encoding for both Python 2 and 3
+        if isinstance(topic, six.text_type):
+            topic_bytes = topic.encode('ascii')
+        else:
+            topic_bytes = topic
+
         if datatype == 'string':
-            self.api.publish(topic.encode(encoding='ascii'),data.encode(encoding='ascii'))
+            if isinstance(data, six.text_type):
+                data_bytes = data.encode('ascii')
+            else:
+                data_bytes = data
+            self.api.publish(topic_bytes, data_bytes)
         elif datatype == 'uint8':
-            self.api.publish_u8(topic.encode(encoding='ascii'), data)
+            self.api.publish_u8(topic_bytes, data)
         elif datatype == 'uint16':
-            self.api.publish_u16(topic.encode(encoding='ascii'), data)
+            self.api.publish_u16(topic_bytes, data)
         elif datatype == 'uint32':
-            self.api.publish_u32(topic.encode(encoding='ascii'), data)
+            self.api.publish_u32(topic_bytes, data)
         elif datatype == 'int8':
-            self.api.publish_i8(topic.encode(encoding='ascii'), data)
+            self.api.publish_i8(topic_bytes, data)
         elif datatype == 'int16':
-            self.api.publish_i16(topic.encode(encoding='ascii'), data)
+            self.api.publish_i16(topic_bytes, data)
         elif datatype == 'int32':
-            self.api.publish_i32(topic.encode(encoding='ascii'), data)
+            self.api.publish_i32(topic_bytes, data)
         elif datatype == 'float32':
-            self.api.publish_f32(topic.encode(encoding='ascii'), data)
+            self.api.publish_f32(topic_bytes, data)
 
     def __get_on_frame_cb(self):
         def on_frame(state,msg):
-            topic = msg.contents.topic.decode(encoding='utf-8')
+            topic = msg.contents.topic.decode('utf-8')
             payload = None
             # cast buffer to string
             if msg.contents.type == 7 :
@@ -111,7 +123,9 @@ C API Abstraction over the C binding protocol implementation
                 # Use api to format data correctly
                 self.api.emplace(msg,cbuf,msg.contents.size + 1)
                 # Convert bytes code to utf-8
-                payload = cbuf.value.decode('utf-8')
+                payload = cbuf.value
+                if isinstance(payload, six.binary_type):
+                    payload = payload.decode('utf-8')
 
             # cast buffer to uint8
             elif msg.contents.type == 1 :
@@ -179,11 +193,14 @@ C API Abstraction over the C binding protocol implementation
             # Read the data
             data = self.transport.read(maxbytes=data_size)
 
+            if data is None:
+                return 0
+                
             if len(data) > data_size:
                 return 0
 
             for i in range(len(data)):
-                uint8_ptr[i] = data[i]
+                uint8_ptr[i] = data[i] if isinstance(data[i], int) else ord(data[i])
 
             return len(data)
         return buffer_operation_func_t(read)

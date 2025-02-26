@@ -1,11 +1,22 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import division, print_function
 from .crc import crc16
 from .framing import Delimiter
-from struct import pack, unpack, unpack_from
+from struct import pack, unpack, unpack_from, calcsize
 from logging import getLogger
-from binascii import hexlify
 import struct
+import six
+
+# For Python 2 compatibility when dealing with bytes/strings
+if six.PY3:
+    from binascii import hexlify
+else:
+    # Python 2 implementation
+    def hexlify(data):
+        if isinstance(data, bytearray):
+            return ''.join('{:02x}'.format(b) for b in data)
+        return ''.join('{:02x}'.format(ord(c)) for c in data)
 
 class Telemetry:
     """
@@ -67,12 +78,15 @@ class Telemetry:
             "tx_encoded_frames" : self.tx_encoded_frames
         }
 
-
     def _encode_frame(self, topic, data, datatype):
-        topic = topic.encode('utf8')
+        # Ensure topic is bytes for both Python 2 and 3
+        if isinstance(topic, six.text_type):
+            topic = topic.encode('utf8')
 
         if datatype == "string":
-            data = data.encode("utf8")
+            # Handle string data for both Python versions
+            if isinstance(data, six.text_type):
+                data = data.encode("utf8")
             payload_fmt = "%ds" % len(data)
         else:
             payload_fmt = self.formats[datatype]
@@ -85,11 +99,14 @@ class Telemetry:
 
         # crc
         _crc = crc16(frame)
-        _crc = pack("<H",_crc)
+        _crc = pack("<H", _crc)
         frame.extend(_crc)
 
         # Log sent frame
-        self.log_tx.info(hexlify(frame))
+        hex_frame = hexlify(frame)
+        if isinstance(hex_frame, six.binary_type):
+            hex_frame = hex_frame.decode('ascii')
+        self.log_tx.info(hex_frame)
 
         self.tx_encoded_frames += 1
 
@@ -106,12 +123,18 @@ class Telemetry:
         try:
             frame_crc, = unpack("<H", frame[-2:])
         except struct.error as e:
-            self.log_rx.error("Could not unpack CRC. %s %s" % (e,frame))
+            hex_frame = hexlify(frame)
+            if isinstance(hex_frame, six.binary_type):
+                hex_frame = hex_frame.decode('ascii')
+            self.log_rx.error("Could not unpack CRC. %s %s" % (e, hex_frame))
             return
 
         if local_crc != frame_crc:
+            hex_frame = hexlify(frame)
+            if isinstance(hex_frame, six.binary_type):
+                hex_frame = hex_frame.decode('ascii')
             self.log_rx.warn("CRC local {0} vs frame {1} for {2}"
-                             .format(local_crc,frame_crc,hexlify(frame)))
+                             .format(local_crc, frame_crc, hex_frame))
             self.rx_corrupted_crc += 1
             return
 
@@ -119,12 +142,18 @@ class Telemetry:
         try:
             header, = unpack_from("<H", frame)
         except struct.error as e:
-            self.log_rx.error("Could not unpack header in frame {1} : {0} " % (e,hexlify(frame)))
+            hex_frame = hexlify(frame)
+            if isinstance(hex_frame, six.binary_type):
+                hex_frame = hex_frame.decode('ascii')
+            self.log_rx.error("Could not unpack header in frame {1} : {0}".format(e, hex_frame))
             self.rx_corrupted_header += 1
             return
 
         if not header in self.rtypes:
-            self.log_rx.warn("Header not found in frame {0}".format(hexlify(frame)))
+            hex_frame = hexlify(frame)
+            if isinstance(hex_frame, six.binary_type):
+                hex_frame = hex_frame.decode('ascii')
+            self.log_rx.warn("Header not found in frame {0}".format(hex_frame))
             self.rx_corrupted_header += 1
             return
 
@@ -132,8 +161,11 @@ class Telemetry:
         try:
             i = frame.index(0, 2, -2)
         except:
+            hex_frame = hexlify(frame)
+            if isinstance(hex_frame, six.binary_type):
+                hex_frame = hex_frame.decode('ascii')
             self.log_rx.warn("topic EOL not found for {0}"
-                             .format(hexlify(frame)))
+                             .format(hex_frame))
             self.rx_corrupted_eol += 1
             return
 
@@ -143,7 +175,7 @@ class Telemetry:
         except UnicodeError as e:
             self.log_rx.warning("Decoding error for topic. %s. Using 'replace' option." % e)
             self.rx_corrupted_topic += 1
-            topic = frame[2:i].decode("utf8",errors='replace')
+            topic = frame[2:i].decode("utf8", errors='replace')
 
         # Find type from header
         _type = self.rtypes[header]
@@ -151,18 +183,25 @@ class Telemetry:
         # decode data
         if _type == "string":
             # start at i+1 to remove EOL zero
-            data = frame[i+1:-2].decode("utf8")
+            try:
+                data = frame[i+1:-2].decode("utf8")
+            except UnicodeError:
+                data = frame[i+1:-2].decode("utf8", errors='replace')
         else:
             # Find format
             fmt = self.formats[_type]
             # Check actual sizes matches the one expected by unpack
             # (start at i+1 to remove EOL zero)
-            # TODO : Use calcsize instead
-            if len(frame[i+1:-2]) != self.sizes[_type]:
+            expected_size = self.sizes[_type]
+            actual_size = len(frame[i+1:-2])
+            if actual_size != expected_size:
+                hex_frame = hexlify(frame)
+                if isinstance(hex_frame, six.binary_type):
+                    hex_frame = hex_frame.decode('ascii')
                 self.log_rx.warn("Payload size {0} not matching {1} for {2}"
-                        .format(len(frame[i+1:-2]),
-                                self.sizes[_type],
-                                hexlify(frame)))
+                        .format(actual_size,
+                                expected_size,
+                                hex_frame))
                 self.rx_corrupted_payload += 1
                 return
 
@@ -170,11 +209,17 @@ class Telemetry:
             try:
                 data, = unpack_from("<%s" % fmt, frame, i+1)
             except struct.error as e:
-                self.log_rx.error("Could not unpack payload in frame {0} : {1}" % (hexlify(frame),e))
+                hex_frame = hexlify(frame)
+                if isinstance(hex_frame, six.binary_type):
+                    hex_frame = hex_frame.decode('ascii')
+                self.log_rx.error("Could not unpack payload in frame {0} : {1}".format(hex_frame, e))
                 self.rx_corrupted_payload += 1
                 return
 
-        self.log_rx.info(hexlify(frame))
+        hex_frame = hexlify(frame)
+        if isinstance(hex_frame, six.binary_type):
+            hex_frame = hex_frame.decode('ascii')
+        self.log_rx.info(hex_frame)
         self.rx_decoded_frames += 1
 
         return topic, data
@@ -196,10 +241,11 @@ class Telemetry:
             self.transport.write(frame)
 
     def update(self):
-        amount = self.transport.readable();
+        amount = self.transport.readable()
         for i in range(amount):
             c = self.transport.read(maxbytes=1)
-            self.delimiter.decode(c)
+            if c:  # Handle None or empty data
+                self.delimiter.decode(c)
 
     def _on_frame_detected(self, frame):
         topic_data = self._decode_frame(frame)

@@ -1,5 +1,7 @@
+from __future__ import division  # Use Python 3-style division in Python 2
 import serial
 from logging import getLogger
+import six
 
 class SerialTransport:
     def __init__(self):
@@ -38,7 +40,13 @@ class SerialTransport:
 
     def read(self, maxbytes=1):
         try:
-            in_waiting = self.driver.in_waiting
+            # Handle Python 2/3 compatibility for in_waiting property
+            if hasattr(self.driver, 'in_waiting'):
+                in_waiting = self.driver.in_waiting
+            elif hasattr(self.driver, 'inWaiting'):
+                in_waiting = self.driver.inWaiting()
+            else:
+                raise AttributeError("Serial object has no attribute in_waiting or inWaiting")
         except serial.SerialException as e:
             self.log_tr.error("Caught Exception during read driver.in_waiting : %s" % e)
             return None
@@ -59,18 +67,29 @@ class SerialTransport:
 
     def readable(self):
         try:
-            in_waiting = self.driver.in_waiting
+            # Handle Python 2/3 compatibility for in_waiting property
+            if hasattr(self.driver, 'in_waiting'):
+                in_waiting = self.driver.in_waiting
+            elif hasattr(self.driver, 'inWaiting'):
+                in_waiting = self.driver.inWaiting()
+            else:
+                raise AttributeError("Serial object has no attribute in_waiting or inWaiting")
         except serial.SerialException as e:
             self.log_tr.error("Caught Exception during read driver.in_waiting : %s" % e)
             return 0
 
         self.measurements['rx_in_waiting'] = in_waiting
         self.measurements['rx_in_waiting_max'] = max(self.measurements['rx_in_waiting_max'], in_waiting)
+        # Use true division for averaging (Python 2 compatibility)
         self.measurements['rx_in_waiting_avg'] = (in_waiting + self.averaging_window * self.measurements['rx_in_waiting_avg']) / (self.averaging_window + 1)
 
         return in_waiting
 
     def write(self, data):
+        # In Python 2, make sure we're sending bytes/bytearray, not a list of integers
+        if six.PY2 and isinstance(data, list):
+            data = bytearray(data)
+            
         self.driver.write(data)
         self.measurements['tx_bytes'] += len(data)
         self.measurements['tx_chunks'] += 1

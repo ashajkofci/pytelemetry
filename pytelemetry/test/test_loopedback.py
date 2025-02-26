@@ -1,12 +1,28 @@
+from __future__ import division, print_function
 from pytelemetry import Pytelemetry
-import queue
-import unittest.mock as mock
+import six
+try:
+    from queue import Queue  # Python 3
+except ImportError:
+    from Queue import Queue  # Python 2
+
+# For Python 2 compatibility, if unittest.mock is not available
+try:
+    import unittest.mock as mock
+except ImportError:
+    try:
+        import mock
+    except ImportError:
+        print("WARNING: mock module not available, some tests may fail")
+        mock = None
+
 from pytelemetry.telemetry.crc import crc16
 import struct
 
 class transportMock:
     def __init__(self):
-        self.queue = queue.Queue()
+        self.queue = Queue()
+        
     def read(self, maxbytes=1):
         data = []
         amount = 0
@@ -229,6 +245,7 @@ def test_protocol_stats():
     assert measures["tx_encoded_frames"] == 0
 
     # Add a frame inside the transport queue
+    # Use bytearray to ensure compatibility with both Python 2 and 3
     t.write(bytearray.fromhex("f70700666f6f0062617247027f"))
     # update to read the new frame
     p.update()

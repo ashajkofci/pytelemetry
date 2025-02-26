@@ -2,7 +2,10 @@
 # For conditions of distribution and use, see copyright notice in the LICENSE file
 
 from enum import Enum
-from queue import Queue
+try:
+    from queue import Queue  # Python 3
+except ImportError:
+    from Queue import Queue  # Python 2
 
 class RX_STATE(Enum):
     IDLE = 0
@@ -52,7 +55,20 @@ class Delimiter():
         }
 
     def decode(self, data):
-        for c in data:
+        # Ensure data is iterable for both Python 2 and 3
+        if isinstance(data, (bytes, bytearray)):
+            # It's already iterable, but in Python 2 bytes are strings
+            # and we need to handle each byte correctly
+            char_iter = data
+        else:
+            # Convert to bytearray for consistent handling
+            char_iter = bytearray([data])
+            
+        for c in char_iter:
+            # In Python 2, bytes (str) elements are strings, so we need to get the ordinal value
+            if isinstance(c, str):
+                c = ord(c)
+                
             self.processed_rx_bytes += 1
 
             # no frame in process
@@ -62,6 +78,7 @@ class Delimiter():
                     self.rx_state = RX_STATE.IN_PROCESS
                     self.escape_state = ESC_STATE.IDLE
                     self.framesize = 0
+                    self.payload = bytearray()  # Reset payload for new frame
                 else:
                     self.discarded_rx_bytes += 1
 
@@ -98,7 +115,7 @@ class Delimiter():
                         self.payload.append(c)
                         self.framesize += 1;
 
-    def encode(self,rxpayload):
+    def encode(self, rxpayload):
         frame = bytearray()
         frame.append(self.SOF)
 

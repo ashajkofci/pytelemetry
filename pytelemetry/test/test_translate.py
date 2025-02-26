@@ -1,4 +1,6 @@
+from __future__ import division, print_function
 from pytelemetry.remoting import translate
+import six
 
 def test_translate_pass_thru():
     topic = "sometopic"
