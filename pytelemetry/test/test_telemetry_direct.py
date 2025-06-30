@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 from pytelemetry.telemetry.telemetry import Telemetry
 
 def test_special_characters():

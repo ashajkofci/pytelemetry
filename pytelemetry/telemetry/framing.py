@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 # Copyright (C) 2014 Rémi Bèges
 # For conditions of distribution and use, see copyright notice in the LICENSE file
 

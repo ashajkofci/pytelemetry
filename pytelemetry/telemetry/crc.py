@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 # From : https://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
 #
 # Most significant bit first (big-endian)

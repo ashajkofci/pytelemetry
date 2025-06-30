@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
 """
     pytelemetry enables remote monitoring and program control. It is typically
     used to get readings and configure remotely an embedded device (Arduino,

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 from setuptools import setup, find_packages, Extension
 from codecs import open
@@ -10,6 +11,7 @@ with io.open('DESCRIPTION.rst', encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
+    python_requires='>=2.7, <4',
     name='pytelemetry',
 
     version='1.1.10',
